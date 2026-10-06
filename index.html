@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Горный профиль Кыргызской Республики</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="lib/chart.umd.min.js"></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="topbar-inner">
+        <h1 id="page-title">Горный профиль Кыргызской Республики</h1>
+      </div>
+    </header>
+
+    <main class="container">
+      <p class="intro" id="page-intro"></p>
+
+      <div id="sectors-root"></div>
+    </main>
+
+    <div id="modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="modal-backdrop" data-close></div>
+      <div class="modal-panel">
+        <header class="modal-header">
+          <h2 id="modal-title"></h2>
+          <button type="button" class="icon-btn" data-close aria-label="Закрыть">&times;</button>
+        </header>
+        <div class="modal-filters">
+          <label>
+            Показатель
+            <select id="f-indicator"></select>
+          </label>
+          <label>
+            Год
+            <select id="f-year-mode">
+              <option value="compare">2023 и 2024</option>
+              <option value="2023">2023</option>
+              <option value="2024">2024</option>
+              <option value="2025">2025*</option>
+            </select>
+          </label>
+          <label>
+            Территория
+            <select id="f-level">
+              <option value="kr">Кыргызская Республика</option>
+              <option value="oblast">Область</option>
+              <option value="rayon">Район / город</option>
+            </select>
+          </label>
+          <label id="wrap-oblast">
+            Область
+            <select id="f-oblast"></select>
+          </label>
+          <label id="wrap-rayon" class="hidden">
+            Район
+            <select id="f-rayon"></select>
+          </label>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="detail-chart" aria-label="Диаграмма"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <footer class="footer">
+      <p class="sources-heading">Источники данных</p>
+      <ul class="sources-list" id="sources-list"></ul>
+    </footer>
+
+    <script src="data.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
