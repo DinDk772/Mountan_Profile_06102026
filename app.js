@@ -164,12 +164,17 @@
     el("modal").classList.remove("hidden");
     if (ctx.kind === "theme") {
       el("modal-title").textContent = ctx.theme.title;
-      el("f-year-mode").innerHTML = `
+      if (ctx.theme.type === "snapshot_hierarchy") {
+        const tag = ctx.theme.as_of || "срез";
+        el("f-year-mode").innerHTML = `<option value="single">На ${tag}</option>`;
+      } else {
+        el("f-year-mode").innerHTML = `
         <option value="compare">2023 и 2024</option>
         <option value="2023">2023</option>
         <option value="2024">2024</option>
         <option value="2025">2025*</option>
       `;
+      }
       populateFiltersTheme(ctx.theme);
     } else {
       el("modal-title").textContent = `${ctx.block.title} — ${ctx.block.year}`;
@@ -216,7 +221,8 @@
   }
 
   function listIndicators(theme) {
-    if (theme.type === "med") return theme.data.indicators;
+    if (theme.type === "med" || theme.type === "snapshot_hierarchy")
+      return theme.data.indicators;
     if (theme.type === "units_children")
       return [
         {
@@ -275,6 +281,15 @@
         .filter((k) => k !== "KR")
         .map((k) => [k, theme.data.nodes[k].display]);
       appendOblastChoices(sel, entries);
+    } else if (theme.type === "snapshot_hierarchy") {
+      const entries = Object.keys(theme.data.oblasts || {})
+        .sort((a, b) =>
+          (theme.data.oblasts[a].display || a).localeCompare(
+            theme.data.oblasts[b].display || b
+          )
+        )
+        .map((k) => [k, theme.data.oblasts[k].display]);
+      appendOblastChoices(sel, entries);
     } else if (theme.type === "units_children") {
       const entries = Object.keys(theme.data.oblasts)
         .sort()
@@ -294,7 +309,10 @@
     const sel = el("f-rayon");
     sel.innerHTML = "";
     const obKey = el("f-oblast").value;
-    if (theme.type === "units_children" && theme.data.oblasts[obKey]) {
+    if (
+      (theme.type === "units_children" || theme.type === "snapshot_hierarchy") &&
+      theme.data.oblasts[obKey]
+    ) {
       const rays = theme.data.oblasts[obKey].rayons || {};
       Object.keys(rays)
         .sort()
@@ -398,6 +416,9 @@
     if (theme.type === "med") {
       return buildMedChart(theme, indIdx, yearMode, level);
     }
+    if (theme.type === "snapshot_hierarchy") {
+      return buildSnapshotChart(theme, indIdx, level, ind.unit);
+    }
     if (theme.type === "units_children") {
       return buildUnitsChart(theme, ind.key, yearMode, level, ind.unit);
     }
@@ -405,6 +426,59 @@
       return buildVed1Chart(theme, ind.key, yearMode, level, ind.unit);
     }
     return buildSimpleChart(theme, indIdx, yearMode, ind.unit);
+  }
+
+  function buildSnapshotChart(theme, indIdx, level, unit) {
+    const ind = theme.data.indicators[indIdx];
+    const key = ind.key;
+    const labels = [];
+    const vals = [];
+    let title = ind.label;
+    let titleSuffix = "";
+
+    if (level === "kr") {
+      labels.push(theme.data.kr.display || "Кыргызская Республика");
+      vals.push(theme.data.kr.values[key] || 0);
+    } else if (level === "oblast") {
+      const obKey = el("f-oblast").value;
+      if (obKey === OBLAST_ALL) {
+        Object.keys(theme.data.oblasts || {})
+          .sort((a, b) =>
+            (theme.data.oblasts[a].display || a).localeCompare(
+              theme.data.oblasts[b].display || b
+            )
+          )
+          .forEach((k) => {
+            const o = theme.data.oblasts[k];
+            labels.push(o.display);
+            vals.push(o.values[key] || 0);
+          });
+      } else {
+        const ob = theme.data.oblasts[obKey];
+        titleSuffix = ob ? ` · ${ob.display}` : "";
+        const rays = ob?.rayons || {};
+        const keys = Object.keys(rays).sort();
+        if (keys.length) {
+          keys.forEach((k) => {
+            labels.push(rays[k].display || k);
+            vals.push(rays[k].values[key] || 0);
+          });
+        } else if (ob) {
+          labels.push(ob.display);
+          vals.push(ob.values[key] || 0);
+        }
+      }
+    } else if (level === "rayon") {
+      const ob = theme.data.oblasts[el("f-oblast").value];
+      const ray = ob?.rayons?.[el("f-rayon").value];
+      if (ray) {
+        labels.push(ray.display);
+        vals.push(ray.values[key] || 0);
+      }
+    }
+
+    const tag = theme.as_of ? ` · ${theme.as_of}` : "";
+    return singleBar(title + titleSuffix + tag, labels, vals, CHART.blue, unit);
   }
 
   function buildMedChart(theme, indIdx, yearMode, level) {
