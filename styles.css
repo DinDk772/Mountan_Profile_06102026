@@ -429,6 +429,144 @@ body {
   padding: 0.5rem 0;
 }
 
+.templates-summary-note {
+  margin-top: -0.5rem;
+  font-size: 0.88rem;
+}
+
+.fill-example-block {
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--border);
+}
+
+.fill-example-title {
+  margin: 0 0 0.45rem;
+  font-size: 0.92rem;
+  color: var(--accent-blue);
+}
+
+.fill-example-panel {
+  margin-bottom: 0.5rem;
+  background: var(--bg-tile-accent);
+  border-radius: 8px;
+  padding: 0.35rem 0.55rem 0.55rem;
+}
+
+.fill-example-panel summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.84rem;
+}
+
+.fill-example-note {
+  margin: 0.35rem 0 0.5rem;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.fill-ref-table th .col-maint {
+  display: block;
+  font-weight: 400;
+  font-size: 0.65rem;
+  color: var(--text-muted);
+}
+
+.cell-readonly {
+  background: #f4f6fb;
+  color: var(--text-secondary);
+}
+
+.cell-editable {
+  background: #fffef5;
+  font-weight: 600;
+}
+
+.registry-lead {
+  margin: 0 0 0.5rem;
+  color: var(--text-secondary);
+}
+
+.registry-stats,
+.registry-maint,
+.registry-file {
+  margin: 0.25rem 0;
+  font-size: 0.86rem;
+  color: var(--text-secondary);
+}
+
+.registry-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem 1rem;
+  margin: 1rem 0 0.75rem;
+  align-items: flex-end;
+}
+
+.registry-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.registry-filter input,
+.registry-filter select {
+  font: inherit;
+  font-size: 0.88rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  min-width: 10rem;
+}
+
+.registry-filter input[type="search"] {
+  min-width: 14rem;
+}
+
+.registry-table-wrap {
+  overflow-x: auto;
+  max-height: 32rem;
+  overflow-y: auto;
+  border: 1px solid var(--border-tile);
+  border-radius: 8px;
+  background: var(--bg-tile);
+}
+
+.registry-table .soate-missing {
+  color: #b45309;
+  font-style: italic;
+}
+
+.registry-pager {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-top: 0.65rem;
+}
+
+.registry-page-info {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-right: auto;
+}
+
+.registry-page-btn {
+  font: inherit;
+  font-size: 0.82rem;
+  padding: 0.3rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-tile);
+  cursor: pointer;
+}
+
+.registry-page-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 @media (min-width: 900px) {
   .indicator-grid {
     grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));

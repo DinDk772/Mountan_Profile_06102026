@@ -22,6 +22,9 @@
         <button type="button" class="main-tab" data-tab="templates" aria-selected="false">
           План сбора показателей
         </button>
+        <button type="button" class="main-tab" data-tab="registry" aria-selected="false">
+          Справочник НП (≥1000 м)
+        </button>
       </nav>
 
       <p class="intro" id="page-intro"></p>
@@ -33,6 +36,13 @@
       <div id="panel-templates" class="tab-panel hidden" hidden>
         <div id="templates-summary" class="templates-summary"></div>
         <div id="templates-root"></div>
+      </div>
+
+      <div id="panel-registry" class="tab-panel hidden" hidden>
+        <div id="registry-summary" class="registry-summary"></div>
+        <div id="registry-filters" class="registry-filters"></div>
+        <div id="registry-table-wrap" class="registry-table-wrap"></div>
+        <div id="registry-pager" class="registry-pager"></div>
       </div>
     </main>
 

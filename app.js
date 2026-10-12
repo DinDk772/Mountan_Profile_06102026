@@ -17,6 +17,8 @@
 
   let chartInstance = null;
   let modalContext = null;
+  let registryState = { page: 1, pageSize: 50, query: "", oblast: "", zone: "" };
+  let registryItems = [];
 
   const el = (id) => document.getElementById(id);
 
@@ -50,6 +52,7 @@
     sectors.forEach((sec) => root.appendChild(buildSectorSection(sec)));
 
     renderFutureTemplates(DATA.future_templates);
+    renderNpRegistry(DATA.np_registry);
     wireModal();
   }
 
@@ -57,6 +60,7 @@
     const tabs = document.querySelectorAll(".main-tab");
     const panelData = el("panel-data");
     const panelTemplates = el("panel-templates");
+    const panelRegistry = el("panel-registry");
     const intro = el("page-intro");
 
     tabs.forEach((btn) => {
@@ -68,13 +72,17 @@
           b.setAttribute("aria-selected", on ? "true" : "false");
         });
         const showData = id === "data";
+        const showTemplates = id === "templates";
+        const showRegistry = id === "registry";
         panelData.classList.toggle("hidden", !showData);
-        panelTemplates.classList.toggle("hidden", showData);
-        panelTemplates.hidden = showData;
+        panelTemplates.classList.toggle("hidden", !showTemplates);
+        panelRegistry.classList.toggle("hidden", !showRegistry);
+        panelTemplates.hidden = !showTemplates;
+        panelRegistry.hidden = !showRegistry;
         if (intro) {
-          intro.textContent = showData
-            ? DATA.meta.intro || ""
-            : DATA.future_templates?.intro || DATA.meta.intro || "";
+          if (showData) intro.textContent = DATA.meta.intro || "";
+          else if (showTemplates) intro.textContent = DATA.future_templates?.intro || "";
+          else if (showRegistry) intro.textContent = DATA.np_registry?.intro || "";
         }
       });
     });
@@ -99,6 +107,10 @@
         <strong>${counts.primary ?? 0}</strong> первичных и
         <strong>${counts.calculated ?? 0}</strong> расчётных показателей
         (всего ${counts.total ?? 0}).
+      </p>
+      <p class="templates-summary-lead templates-summary-note">
+        Для каждого раздела ниже — пример строки ввода по одному НП из справочника
+        (колонки A–H не редактируются; заполняются показатели).
       </p>
     `;
 
@@ -166,7 +178,273 @@
       });
     });
 
+    if (tpl.fill_examples?.length) {
+      card.appendChild(buildFillExamplesBlock(tpl.fill_examples));
+    }
+
     return card;
+  }
+
+  function buildFillExamplesBlock(examples) {
+    const box = document.createElement("div");
+    box.className = "fill-example-block";
+    const h = document.createElement("h4");
+    h.className = "fill-example-title";
+    h.textContent = "Пример заполнения (один населённый пункт)";
+    box.appendChild(h);
+    examples.forEach((ex, idx) => box.appendChild(buildFillExamplePanel(ex, idx === 0)));
+    return box;
+  }
+
+  function buildFillExamplePanel(ex, openDefault) {
+    const panel = document.createElement("details");
+    panel.className = "fill-example-panel";
+    panel.open = !!openDefault;
+    const np = ex.np || {};
+    const summary = document.createElement("summary");
+    summary.innerHTML = `Лист «${escapeHtml(ex.sheet)}» · ${escapeHtml(np.name || "—")} · H_mid ${escapeHtml(
+      np.h_mid != null ? np.h_mid : "—"
+    )} м`;
+    panel.appendChild(summary);
+    if (ex.note) {
+      const note = document.createElement("p");
+      note.className = "fill-example-note";
+      note.textContent = ex.note;
+      panel.appendChild(note);
+    }
+    panel.appendChild(buildFillReferenceTable(ex));
+    panel.appendChild(buildFillIndicatorsTable(ex.indicators || []));
+    return panel;
+  }
+
+  function buildFillReferenceTable(ex) {
+    const np = ex.np || {};
+    const table = document.createElement("table");
+    table.className = "template-table fill-ref-table";
+    const cols = ex.reference_columns || [];
+    let head = "<thead><tr>";
+    cols.forEach((c) => {
+      const maint = c.maintainer ? `<span class="col-maint">${escapeHtml(c.maintainer)}</span>` : "";
+      head += `<th scope="col">${escapeHtml(c.title)}${maint}</th>`;
+    });
+    head += "</tr></thead>";
+    table.innerHTML = head;
+    const tr = document.createElement("tr");
+    cols.forEach((c) => {
+      const td = document.createElement("td");
+      let val = np[c.key];
+      if (c.key === "h_mid" && val != null) val = fmtNum(val);
+      td.textContent = val != null && val !== "" ? String(val) : "—";
+      if (!c.editable) td.classList.add("cell-readonly");
+      tr.appendChild(td);
+    });
+    const tbody = document.createElement("tbody");
+    tbody.appendChild(tr);
+    table.appendChild(tbody);
+    return table;
+  }
+
+  function buildFillIndicatorsTable(rows) {
+    const wrap = document.createElement("div");
+    wrap.className = "template-table-wrap";
+    if (!rows.length) {
+      wrap.textContent = "Показатели для ввода — заполните значения в столбцах шаблона.";
+      return wrap;
+    }
+    const table = document.createElement("table");
+    table.className = "template-table";
+    table.innerHTML = `
+      <thead>
+        <tr>
+          <th scope="col">Код</th>
+          <th scope="col">Показатель</th>
+          <th scope="col">Ед.</th>
+          <th scope="col">Пример значения</th>
+        </tr>
+      </thead>
+    `;
+    const tbody = document.createElement("tbody");
+    rows.forEach((r) => {
+      const tr = document.createElement("tr");
+      const val = r.value != null && r.value !== "" ? r.value : "— (ввод ведомства)";
+      tr.innerHTML = `
+        <td><code>${escapeHtml(r.code)}</code></td>
+        <td>${escapeHtml(r.label)}</td>
+        <td>${escapeHtml(r.unit || "—")}</td>
+        <td class="cell-editable">${escapeHtml(String(val))}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+    return wrap;
+  }
+
+  function renderNpRegistry(block) {
+    const summary = el("registry-summary");
+    const filters = el("registry-filters");
+    if (!summary || !filters || !block?.items?.length) {
+      if (summary) {
+        summary.textContent = block
+          ? "Справочник НП пуст. Проверьте шаблон «Население»."
+          : "Нет данных np_registry — пересоберите дашборд.";
+      }
+      return;
+    }
+    registryItems = block.items;
+    const st = block.stats || {};
+    const kr = block.summary?.kr_totals || {};
+    const maintainers = (block.maintainers || [])
+      .map((m) => `<strong>${escapeHtml(m.name)}</strong>: ${escapeHtml(m.fields)}`)
+      .join(" · ");
+    summary.innerHTML = `
+      <p class="registry-lead">${escapeHtml(block.intro || "")}</p>
+      <p class="registry-stats">
+        В справочнике <strong>${st.total ?? registryItems.length}</strong> НП (H_mid ≥ 1000 м);
+        с кодом СОАТЕ: <strong>${st.with_soate ?? 0}</strong>,
+        без кода (ожидается уточнение НСК): <strong>${st.without_soate ?? 0}</strong>.
+        ${
+          kr.mountain_np
+            ? ` Сводка шаблона «Основные данные»: горных НП — <strong>${escapeHtml(kr.mountain_np)}</strong>.`
+            : ""
+        }
+      </p>
+      <p class="registry-maint">${maintainers}</p>
+      <p class="registry-file">${escapeHtml(block.source_file || "")} · ${escapeHtml(
+      block.updated_note || ""
+    )}</p>
+    `;
+
+    filters.innerHTML = `
+      <label class="registry-filter">
+        Поиск (название или СОАТЕ)
+        <input type="search" id="registry-search" placeholder="Например, Баткен" />
+      </label>
+      <label class="registry-filter">
+        Область
+        <select id="registry-oblast"><option value="">Все</option></select>
+      </label>
+      <label class="registry-filter">
+        Зона
+        <select id="registry-zone"><option value="">Все</option></select>
+      </label>
+    `;
+    const obSel = el("registry-oblast");
+    const zoneSel = el("registry-zone");
+    (block.filters?.oblasts || []).forEach((o) => {
+      const opt = document.createElement("option");
+      opt.value = o;
+      opt.textContent = o;
+      obSel.appendChild(opt);
+    });
+    (block.filters?.zones || []).forEach((z) => {
+      const opt = document.createElement("option");
+      opt.value = z;
+      opt.textContent = z;
+      zoneSel.appendChild(opt);
+    });
+
+    el("registry-search").addEventListener("input", (e) => {
+      registryState.query = e.target.value.trim().toLowerCase();
+      registryState.page = 1;
+      paintRegistryTable();
+    });
+    obSel.addEventListener("change", (e) => {
+      registryState.oblast = e.target.value;
+      registryState.page = 1;
+      paintRegistryTable();
+    });
+    zoneSel.addEventListener("change", (e) => {
+      registryState.zone = e.target.value;
+      registryState.page = 1;
+      paintRegistryTable();
+    });
+
+    paintRegistryTable();
+  }
+
+  function filteredRegistryItems() {
+    return registryItems.filter((r) => {
+      if (registryState.oblast && r.oblast !== registryState.oblast) return false;
+      if (registryState.zone && r.zone !== registryState.zone) return false;
+      if (registryState.query) {
+        const hay = `${r.name} ${r.soate} ${r.aimak}`.toLowerCase();
+        if (!hay.includes(registryState.query)) return false;
+      }
+      return true;
+    });
+  }
+
+  function paintRegistryTable() {
+    const wrap = el("registry-table-wrap");
+    const pager = el("registry-pager");
+    if (!wrap || !pager) return;
+    const filtered = filteredRegistryItems();
+    const totalPages = Math.max(1, Math.ceil(filtered.length / registryState.pageSize));
+    if (registryState.page > totalPages) registryState.page = totalPages;
+    const start = (registryState.page - 1) * registryState.pageSize;
+    const pageItems = filtered.slice(start, start + registryState.pageSize);
+
+    const table = document.createElement("table");
+    table.className = "template-table registry-table";
+    table.innerHTML = `
+      <thead>
+        <tr>
+          <th>№</th>
+          <th>СОАТЕ</th>
+          <th>Название</th>
+          <th>Область</th>
+          <th>Район</th>
+          <th>Аймак</th>
+          <th>H_mid, м</th>
+          <th>Зона</th>
+        </tr>
+      </thead>
+    `;
+    const tbody = document.createElement("tbody");
+    pageItems.forEach((r) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${escapeHtml(r.no || "—")}</td>
+        <td>${r.soate ? escapeHtml(r.soate) : '<span class="soate-missing">—</span>'}</td>
+        <td>${escapeHtml(r.name)}</td>
+        <td>${escapeHtml(r.oblast || "—")}</td>
+        <td>${escapeHtml(r.rayon || "—")}</td>
+        <td>${escapeHtml(r.aimak || "—")}</td>
+        <td>${r.h_mid != null ? escapeHtml(fmtNum(r.h_mid)) : "—"}</td>
+        <td>${escapeHtml(r.zone || "—")}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    wrap.innerHTML = "";
+    wrap.appendChild(table);
+
+    pager.innerHTML = "";
+    const info = document.createElement("span");
+    info.className = "registry-page-info";
+    info.textContent = `Показано ${start + 1}–${start + pageItems.length} из ${filtered.length}`;
+    pager.appendChild(info);
+    const prev = document.createElement("button");
+    prev.type = "button";
+    prev.className = "registry-page-btn";
+    prev.textContent = "Назад";
+    prev.disabled = registryState.page <= 1;
+    prev.addEventListener("click", () => {
+      registryState.page -= 1;
+      paintRegistryTable();
+    });
+    const next = document.createElement("button");
+    next.type = "button";
+    next.className = "registry-page-btn";
+    next.textContent = "Вперёд";
+    next.disabled = registryState.page >= totalPages;
+    next.addEventListener("click", () => {
+      registryState.page += 1;
+      paintRegistryTable();
+    });
+    pager.appendChild(prev);
+    pager.appendChild(next);
   }
 
   function buildIndicatorTable(rows) {
