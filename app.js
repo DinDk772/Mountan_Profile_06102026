@@ -32,6 +32,7 @@
     el("page-title").textContent = DATA.meta.title;
     el("page-intro").textContent = DATA.meta.intro || "";
     renderSources();
+    wireMainTabs();
 
     const root = el("sectors-root");
     const sectors =
@@ -48,7 +49,169 @@
       ];
     sectors.forEach((sec) => root.appendChild(buildSectorSection(sec)));
 
+    renderFutureTemplates(DATA.future_templates);
     wireModal();
+  }
+
+  function wireMainTabs() {
+    const tabs = document.querySelectorAll(".main-tab");
+    const panelData = el("panel-data");
+    const panelTemplates = el("panel-templates");
+    const intro = el("page-intro");
+
+    tabs.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.dataset.tab;
+        tabs.forEach((b) => {
+          const on = b.dataset.tab === id;
+          b.classList.toggle("active", on);
+          b.setAttribute("aria-selected", on ? "true" : "false");
+        });
+        const showData = id === "data";
+        panelData.classList.toggle("hidden", !showData);
+        panelTemplates.classList.toggle("hidden", showData);
+        panelTemplates.hidden = showData;
+        if (intro) {
+          intro.textContent = showData
+            ? DATA.meta.intro || ""
+            : DATA.future_templates?.intro || DATA.meta.intro || "";
+        }
+      });
+    });
+  }
+
+  function renderFutureTemplates(block) {
+    const root = el("templates-root");
+    const summary = el("templates-summary");
+    if (!root || !summary) return;
+    root.innerHTML = "";
+    summary.innerHTML = "";
+    if (!block || !block.groups?.length) {
+      summary.textContent =
+        "Шаблоны показателей не загружены. Запустите build_interactive_dashboard.py.";
+      return;
+    }
+
+    const counts = block.indicator_counts || {};
+    summary.innerHTML = `
+      <p class="templates-summary-lead">
+        <strong>${block.template_count}</strong> шаблонов разделов ·
+        <strong>${counts.primary ?? 0}</strong> первичных и
+        <strong>${counts.calculated ?? 0}</strong> расчётных показателей
+        (всего ${counts.total ?? 0}).
+      </p>
+    `;
+
+    block.groups.forEach((group) => {
+      const section = document.createElement("section");
+      section.className = "sector-block templates-group";
+      const h = document.createElement("h2");
+      h.className = "sector-title";
+      h.textContent = group.title;
+      section.appendChild(h);
+
+      group.templates.forEach((tpl) => section.appendChild(buildTemplateCard(tpl)));
+      root.appendChild(section);
+    });
+  }
+
+  function buildTemplateCard(tpl) {
+    const card = document.createElement("article");
+    card.className = "template-card";
+    const sheets =
+      tpl.data_sheets && tpl.data_sheets.length
+        ? tpl.data_sheets.join(", ")
+        : "—";
+    card.innerHTML = `
+      <header class="template-card-head">
+        <h3 class="template-card-title">${escapeHtml(tpl.title)}</h3>
+        <span class="template-badge">${tpl.counts?.total ?? 0} показ.</span>
+      </header>
+      <p class="template-meta"><span>Ответственный:</span> ${escapeHtml(tpl.responsible || "—")}</p>
+      <p class="template-meta"><span>Назначение:</span> ${escapeHtml(tpl.purpose || "—")}</p>
+      <p class="template-meta template-meta-muted"><span>Листы ввода:</span> ${escapeHtml(sheets)}</p>
+      <p class="template-file">${escapeHtml(tpl.source_file || "")}</p>
+    `;
+
+    const tabs = document.createElement("div");
+    tabs.className = "template-kind-tabs";
+    const kinds = [
+      ["primary", "Первичные", tpl.indicators?.primary],
+      ["calculated", "Расчётные", tpl.indicators?.calculated],
+    ];
+    kinds.forEach(([kind, label, rows], idx) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "template-kind-btn" + (idx === 0 ? " active" : "");
+      btn.textContent = `${label} (${(rows || []).length})`;
+      btn.dataset.kind = kind;
+      tabs.appendChild(btn);
+    });
+    card.appendChild(tabs);
+
+    const tableWrap = document.createElement("div");
+    tableWrap.className = "template-table-wrap";
+    tableWrap.appendChild(buildIndicatorTable(tpl.indicators?.primary || []));
+    card.appendChild(tableWrap);
+
+    tabs.querySelectorAll(".template-kind-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        tabs.querySelectorAll(".template-kind-btn").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        const kind = btn.dataset.kind;
+        const rows =
+          kind === "calculated" ? tpl.indicators?.calculated || [] : tpl.indicators?.primary || [];
+        tableWrap.innerHTML = "";
+        tableWrap.appendChild(buildIndicatorTable(rows));
+      });
+    });
+
+    return card;
+  }
+
+  function buildIndicatorTable(rows) {
+    const wrap = document.createElement("div");
+    if (!rows.length) {
+      wrap.className = "template-empty";
+      wrap.textContent = "Показатели не найдены в листе методологии.";
+      return wrap;
+    }
+    const table = document.createElement("table");
+    table.className = "template-table";
+    table.innerHTML = `
+      <thead>
+        <tr>
+          <th scope="col">Код</th>
+          <th scope="col">Показатель</th>
+          <th scope="col">Ед.</th>
+          <th scope="col">Периодичность</th>
+          <th scope="col">Кто заполняет</th>
+        </tr>
+      </thead>
+    `;
+    const tbody = document.createElement("tbody");
+    rows.forEach((r) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td><code>${escapeHtml(r.code)}</code></td>
+        <td>${escapeHtml(r.label)}</td>
+        <td>${escapeHtml(r.unit || "—")}</td>
+        <td>${escapeHtml(r.periodicity || "—")}</td>
+        <td>${escapeHtml(r.filled_by || "—")}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+    return wrap;
+  }
+
+  function escapeHtml(text) {
+    return String(text ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
   }
 
   function renderSources() {

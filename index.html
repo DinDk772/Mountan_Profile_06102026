@@ -1,11 +1,11 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ru">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Горный профиль Кыргызской Республики</title>
     <link rel="stylesheet" href="styles.css" />
-    <script src="lib/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   </head>
   <body>
     <header class="topbar">
@@ -15,9 +15,25 @@
     </header>
 
     <main class="container">
+      <nav class="main-tabs" aria-label="Разделы дашборда">
+        <button type="button" class="main-tab active" data-tab="data" aria-selected="true">
+          Текущие данные
+        </button>
+        <button type="button" class="main-tab" data-tab="templates" aria-selected="false">
+          План сбора показателей
+        </button>
+      </nav>
+
       <p class="intro" id="page-intro"></p>
 
-      <div id="sectors-root"></div>
+      <div id="panel-data" class="tab-panel">
+        <div id="sectors-root"></div>
+      </div>
+
+      <div id="panel-templates" class="tab-panel hidden" hidden>
+        <div id="templates-summary" class="templates-summary"></div>
+        <div id="templates-root"></div>
+      </div>
     </main>
 
     <div id="modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
